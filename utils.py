@@ -8,7 +8,7 @@ from alive_progress import alive_bar
 import cv2
 import matplotlib.pyplot as plt
 
-def load_dicom(zip_file_path, target_size=(256, 256)):
+def load_dicom(zip_file_path, target_size=(128, 128)):
     slices = []
     with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
         with alive_bar(652) as bar:
@@ -16,21 +16,21 @@ def load_dicom(zip_file_path, target_size=(256, 256)):
                 if file.endswith('.dcm'):
                     dcm_file = io.BytesIO(zip_ref.read(file))
                     ds = pydicom.dcmread(dcm_file)
-                    #resized_slice = cv2.resize(ds.pixel_array, target_size, interpolation=cv2.INTER_LINEAR)
-                    slices.append(ds.pixel_array)
+                    resized_slice = cv2.resize(ds.pixel_array, target_size, interpolation=cv2.INTER_LINEAR)
+                    slices.append(resized_slice)
                     bar()
     return np.array(slices)
 
 
-def load_nifti(file_path, target_size=(256, 256)):
+def load_nifti(file_path, target_size=(128, 128)):
     mask_image = sitk.ReadImage(file_path) 
     mask_array = sitk.GetArrayFromImage(mask_image)
 
     lower_teeth = (mask_array == 4).astype(np.uint8)
     upper_teeth = (mask_array == 3).astype(np.uint8)
     binary_mask = lower_teeth + upper_teeth
-    #resized_mask = np.array([cv2.resize(slice_, target_size, interpolation=cv2.INTER_NEAREST) for slice_ in binary_mask])
-    return binary_mask
+    resized_mask = np.array([cv2.resize(slice_, target_size, interpolation=cv2.INTER_NEAREST) for slice_ in binary_mask])
+    return resized_mask
 
 def cbct_data_generator(scan_path: str, masks_path: str, scan_names: list, mask_names: list, batch_size: int = 1):
     while True:

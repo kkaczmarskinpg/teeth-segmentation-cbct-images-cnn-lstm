@@ -1,7 +1,7 @@
 from keras import layers, models, Input
 from metrics import jaccard_index, dice_coefficient
 
-def create_cnn_lstm_model(image_shape=(256, 256), num_slices=652):
+def create_cnn_lstm_model(image_shape=(128, 128), num_slices=652):
     """
     Create a CNN-LSTM model for 3D teeth segmentation with resized input.
     
