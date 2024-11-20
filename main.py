@@ -1,5 +1,5 @@
 import os
-from utils import load_dicom, load_nifti, cbct_data_generator
+from utils import load_dicom, load_nifti, cbct_data_generator, plot_image_with_mask
 import matplotlib.pyplot as plt
 from model import create_cnn_lstm_model
 
@@ -23,5 +23,6 @@ model.fit(
     epochs=epochs)
 """
 
+scan = load_dicom(photos_path+photos_names[0])
 mask = load_nifti(masks_path+masks_names[0])
-print(mask.shape)
+plot_image_with_mask(scan,mask)
