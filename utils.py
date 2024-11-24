@@ -1,23 +1,29 @@
-import io
-import zipfile
-import pydicom
+import cv2
 import numpy as np
 import SimpleITK as sitk
+import matplotlib.pyplot as plt
+import os
+import datetime as dt
+import json
+
+from io import BytesIO
+from zipfile  import ZipFile
+from pydicom import dcmread
 from natsort import natsorted
 from alive_progress import alive_bar
-import cv2
-import matplotlib.pyplot as plt
+from keras import Model
+
 
 def load_dicom(zip_file_path, target_size=(128, 128)):
     slices = []
-    with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
-        with alive_bar(652) as bar:
-            for file in natsorted(zip_ref.namelist()):
+    with ZipFile(zip_file_path, 'r') as zip_ref:
+        with alive_bar(50) as bar:
+            for file in natsorted(zip_ref.namelist())[150:200]: # Only 50 slices for testing
                 if file.endswith('.dcm'):
-                    dcm_file = io.BytesIO(zip_ref.read(file))
-                    ds = pydicom.dcmread(dcm_file)
+                    dcm_file = BytesIO(zip_ref.read(file))
+                    ds = dcmread(dcm_file)
                     resized_slice = cv2.resize(ds.pixel_array, target_size, interpolation=cv2.INTER_LINEAR)
-                    slices.append(resized_slice)
+                    slices.append(resized_slice.astype("float32")/255.0)
                     bar()
     return np.array(slices)
 
@@ -29,21 +35,25 @@ def load_nifti(file_path, target_size=(128, 128)):
     lower_teeth = (mask_array == 4).astype(np.uint8)
     upper_teeth = (mask_array == 3).astype(np.uint8)
     binary_mask = lower_teeth + upper_teeth
-    resized_mask = np.array([cv2.resize(slice_, target_size, interpolation=cv2.INTER_NEAREST) for slice_ in binary_mask])
+    resized_mask = np.array([cv2.resize(slice_, target_size, interpolation=cv2.INTER_NEAREST) for slice_ in binary_mask])[150:200] # only 50 slices for testing
     return resized_mask
 
-def cbct_data_generator(scan_path: str, masks_path: str, scan_names: list, mask_names: list, batch_size: int = 1):
+def cbct_data_generator(scan_path: str, masks_path: str, scan_files: list, mask_files: list):
     while True:
-        for i in range(len(scan_names)):
-            cbct_scan = load_dicom(scan_path+scan_names[i])
-            mask = load_nifti(masks_path+mask_names[i])
+        for i in range(0,len(scan_files)):
+            cbct_scan = load_dicom(scan_path+scan_files[i])
+            mask = load_nifti(masks_path+mask_files[i])
 
-            cbct_scan = cbct_scan.astype('float32')/255.0
+            
             cbct_scan = cbct_scan[..., np.newaxis]
-
             mask = mask[..., np.newaxis]
-            print(cbct_scan.shape, mask.shape)
-            yield np.expand_dims(cbct_scan, axis=0), np.expand_dims(mask, axis=0)
+
+            scan_ready = np.expand_dims(cbct_scan, axis=0)
+            mask_ready = np.expand_dims(mask, axis=0)
+
+            print(scan_ready.shape, mask_ready.shape)
+
+            yield scan_ready, mask_ready
 
 def plot_image_with_mask(cbct_scan, mask, rows: int = 3, cols: int = 6, start_idx = 150, end_idx: int = 500):
     num_of_slices = rows*cols
@@ -67,5 +77,19 @@ def plot_image_with_mask(cbct_scan, mask, rows: int = 3, cols: int = 6, start_id
     plt.subplots_adjust(wspace=0.05, hspace=0.2)
     plt.show()
     return
+
+def save_model(model: Model):
+    os.makedirs("models", exist_ok=True)
+    time = dt.datetime.now().strftime("%m-%d-%Y-%H-%M")
     
+    model_path = "models/CNN-LSTM-teeth-segmentation-model-"+time+".keras"
+    print(f"Saving model...")
+    model.save(model_path)
+    print(f"Model saved to {model_path}")
+    
+    history_path = "models/history-"+time+".json"
+    print("Saving history...")
+    with open(history_path, 'w') as f:
+        json.dump(model.history.history, f)
+    print(f"History saved to {history_path}")
     
