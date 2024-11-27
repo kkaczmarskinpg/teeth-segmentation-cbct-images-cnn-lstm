@@ -10,44 +10,51 @@ from io import BytesIO
 from zipfile  import ZipFile
 from pydicom import dcmread
 from natsort import natsorted
-from alive_progress import alive_bar
 from keras import Model
 from sklearn.model_selection import train_test_split
 from itertools import cycle
 
+def pad_scan_mask(image, target_slices=304):
+    num_slices = image.shape[0]
+    if num_slices < target_slices:
+        pad_width = target_slices - num_slices
+        padded_image = np.pad(image, ((0, pad_width), (0, 0), (0, 0)), mode='constant')
+        return padded_image
+    else:
+        cropped_image = image[:target_slices]
+        return cropped_image
+
 def load_dicom(zip_file_path, target_size=(128, 128)):
     slices = []
     with ZipFile(zip_file_path, 'r') as zip_ref:
-        with alive_bar(50) as bar:
-            for file in natsorted(zip_ref.namelist())[150:200]: # Only 50 slices for testing
-                if file.endswith('.dcm'):
-                    dcm_file = BytesIO(zip_ref.read(file))
-                    ds = dcmread(dcm_file)
-                    resized_slice = cv2.resize(ds.pixel_array, target_size, interpolation=cv2.INTER_LINEAR)
-                    slices.append(resized_slice.astype("float32")/255.0)
-                    bar()
+    
+        for file in natsorted(zip_ref.namelist())[150:200]: # Only 50 slices for testing
+            if file.endswith('.dcm'):
+                dcm_file = BytesIO(zip_ref.read(file))
+                ds = dcmread(dcm_file)
+                resized_slice = cv2.resize(ds.pixel_array, target_size, interpolation=cv2.INTER_LINEAR)
+                slices.append(resized_slice.astype("float32")/255.0)
+                    
     return np.array(slices)
 
-def load_nifti_cbct_scan(file_path, target_size=(128, 128)):
+def load_nifti_cbct_scan(file_path, target_size=(64, 64), target_slices=304):
     photo = sitk.ReadImage(file_path)
     photo_array = sitk.GetArrayFromImage(photo)
     photo_array = (photo_array - np.min(photo_array))/(np.max(photo_array)-np.min(photo_array))
     if  target_size != -1:
         photo_array = np.array([cv2.resize(slice_, target_size, interpolation=cv2.INTER_NEAREST) for slice_ in photo_array]) # only 50 slices for test
+    photo_array = pad_scan_mask(photo_array, target_slices)
     return photo_array
 
-def load_nifti_mask(file_path, target_size=(128, 128)):
+def load_nifti_mask(file_path, target_size=(64, 64), target_slices=304):
     mask_image = sitk.ReadImage(file_path) 
     mask_array = sitk.GetArrayFromImage(mask_image)
 
-    #lower_teeth = (mask_array == 4).astype(np.uint8)
-    #upper_teeth = (mask_array == 3).astype(np.uint8)
-    #binary_mask = lower_teeth + upper_teeth
     if target_size != -1:
         mask_array = np.array([cv2.resize(slice_, target_size, interpolation=cv2.INTER_NEAREST) for slice_ in mask_array]) # only 50 slices for testing
-    
+    mask_array = pad_scan_mask(mask_array, target_slices)
     return mask_array
-
+    
 def cbct_data_generator(scan_path: str, masks_path: str, scan_names: list):
     for name in cycle(scan_names):  
         cbct_scan_file = name + "_0000.nii.gz"
