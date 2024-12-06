@@ -24,7 +24,7 @@ def pad_scan_mask(image, target_slices=304):
         cropped_image = image[:target_slices]
         return cropped_image
 
-def load_dicom(zip_file_path, target_size=(128, 128)):
+def load_dicom(zip_file_path, target_size=(32, 32)):
     slices = []
     with ZipFile(zip_file_path, 'r') as zip_ref:
     
@@ -37,7 +37,7 @@ def load_dicom(zip_file_path, target_size=(128, 128)):
                     
     return np.array(slices)
 
-def load_nifti_cbct_scan(file_path, target_size=(64, 64), target_slices=304):
+def load_nifti_cbct_scan(file_path, target_size=(16, 16), target_slices=304):
     photo = sitk.ReadImage(file_path)
     photo_array = sitk.GetArrayFromImage(photo)
     photo_array = (photo_array - np.min(photo_array))/(np.max(photo_array)-np.min(photo_array))
@@ -46,7 +46,7 @@ def load_nifti_cbct_scan(file_path, target_size=(64, 64), target_slices=304):
     photo_array = pad_scan_mask(photo_array, target_slices)
     return photo_array
 
-def load_nifti_mask(file_path, target_size=(64, 64), target_slices=304):
+def load_nifti_mask(file_path, target_size=(16, 16), target_slices=304):
     mask_image = sitk.ReadImage(file_path) 
     mask_array = sitk.GetArrayFromImage(mask_image)
 
