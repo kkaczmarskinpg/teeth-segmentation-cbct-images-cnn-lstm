@@ -1,52 +1,91 @@
-from keras import layers, models, Input, losses, metrics
+from keras import layers, models, Input, losses
 from metrics import dice_coefficient, jaccard_index, dice_loss
 
-def create_cnn_lstm_model(image_shape=(128, 128), num_slices=50, batch_size=1):
+def create_cnn_lstm_model(image_shape=(64, 64), num_slices=304):
     """
     Create a CNN-LSTM model for slice-by-slice 3D image segmentation.
+
     Parameters:
         image_shape: tuple, the shape of each 2D slice (height, width).
         num_slices: int, number of slices in the 3D image.
+
     Returns:
         model: Compiled Keras model.
     """
     # Input for the 3D image (slice sequence)
     input_layer = Input(shape=(num_slices, image_shape[0], image_shape[1], 1))  # (num_slices, H, W, 1)
-    
-    # CNN for feature extraction (shared across slices)
-    cnn_input = Input(shape=(image_shape[0], image_shape[1], 1))  # Single 2D slice
-    x = layers.Conv2D(32, kernel_size=3, activation='relu', padding='same')(cnn_input)
-    x = layers.MaxPooling2D(pool_size=2)(x)
-    x = layers.Dropout(rate=0.3)(x)
-    x = layers.Conv2D(64, kernel_size=3, activation='relu', padding='same')(x)
-    x = layers.MaxPooling2D(pool_size=2)(x)
-    x = layers.Dropout(rate=0.3)(x)
-    x = layers.Conv2D(128, kernel_size=3, activation='relu', padding='same')(x)
-    x = layers.Flatten()(x)  # Flatten the features for LSTM input
-    cnn_model = models.Model(inputs=cnn_input, outputs=x, name="CNN_FeatureExtractor")
-    # Apply CNN to each slice using TimeDistributed
-    time_distributed = layers.TimeDistributed(cnn_model)(input_layer)  # Shape: (num_slices, features)
+
+    # CNN feature extractor
+    cnn_features = layers.TimeDistributed(
+        layers.Conv2D(32, kernel_size=3, activation='relu', padding='same')
+    )(input_layer)
+
+    cnn_features = layers.TimeDistributed(
+        layers.MaxPooling2D(pool_size=2)
+    )(cnn_features)
+
+    cnn_features = layers.TimeDistributed(
+        layers.Dropout(rate=0.3)
+    )(cnn_features)
+
+    cnn_features = layers.TimeDistributed(
+        layers.Conv2D(64, kernel_size=3, activation='relu', padding='same')
+    )(cnn_features)
+
+    cnn_features = layers.TimeDistributed(
+        layers.MaxPooling2D(pool_size=2)
+    )(cnn_features)
+
+    cnn_features = layers.TimeDistributed(
+        layers.Dropout(rate=0.3)
+    )(cnn_features)
+
+    cnn_features = layers.TimeDistributed(
+        layers.Conv2D(128, kernel_size=3, activation='relu', padding='same')
+    )(cnn_features)
+
+    cnn_features = layers.TimeDistributed(
+        layers.Flatten()
+    )(cnn_features)  # Shape: (num_slices, features)
+
     # LSTM for sequence learning
-    lstm = layers.LSTM(128, return_sequences=True, dropout=0.3, recurrent_dropout=0.3)(time_distributed)
-    lstm = layers.LSTM(64, return_sequences=True, dropout=0.3, recurrent_dropout=0.3)(lstm)
-    # Dense layer to predict pixel-wise probabilities for each slice
+    lstm = layers.LSTM(256, return_sequences=True, dropout=0.3, recurrent_dropout=0.3)(cnn_features)
+    lstm = layers.LSTM(128, return_sequences=True, dropout=0.3, recurrent_dropout=0.3)(lstm)
+
+    # Dense layer dependent on image_shape
+    dense_output_size = (image_shape[0] // 4) * (image_shape[1] // 4) * 128
     dense = layers.TimeDistributed(
-        layers.Dense(image_shape[0] * image_shape[1], activation='sigmoid')
+        layers.Dense(dense_output_size, activation='relu')
     )(lstm)
-    # Reshape back to spatial dimensions for segmentation mask
-    output_layer = layers.Reshape((num_slices, image_shape[0], image_shape[1], 1))(dense)
+
+    # Reshape to match spatial dimensions
+    reshaped = layers.Reshape((num_slices, image_shape[0] // 4, image_shape[1] // 4, 128))(dense)
+
+    # Deconvolutional layer to upsample back to original size
+    deconv = layers.TimeDistributed(
+        layers.Conv2DTranspose(128, kernel_size=3, strides=2, padding="same", activation='relu')
+    )(reshaped)  # Upsampling step 1 -> (H/2, W/2)
+
+    deconv = layers.TimeDistributed(
+        layers.Conv2DTranspose(64, kernel_size=3, strides=2, padding="same", activation='relu')
+    )(deconv)  # Upsampling step 2 -> (H, W)
+
+    # Final 1D convolution activation layer
+    final_conv = layers.TimeDistributed(
+        layers.Conv2D(1, kernel_size=1, activation="sigmoid")
+    )(deconv)
+
     # Define the model
-    model = models.Model(inputs=input_layer, outputs=output_layer, name="CNN_LSTM_Segmentation")
+    model = models.Model(inputs=input_layer, outputs=final_conv, name="CNN_LSTM_Deconv_Segmentation")
 
     # Compile the model
-
     model.compile(
         optimizer='adam', 
-        loss=dice_loss, # "binary_crossentropy"
-        metrics=[ 
+        loss=losses.Dice(), 
+        metrics=[
             jaccard_index,
             dice_coefficient,
-            ]
-        )
+        ]
+    )
 
     return model

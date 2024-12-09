@@ -37,7 +37,7 @@ def load_dicom(zip_file_path, target_size=(32, 32)):
                     
     return np.array(slices)
 
-def load_nifti_cbct_scan(file_path, target_size=(16, 16), target_slices=304):
+def load_nifti_cbct_scan(file_path, target_size=(32, 32), target_slices=304):
     photo = sitk.ReadImage(file_path)
     photo_array = sitk.GetArrayFromImage(photo)
     photo_array = (photo_array - np.min(photo_array))/(np.max(photo_array)-np.min(photo_array))
@@ -46,7 +46,7 @@ def load_nifti_cbct_scan(file_path, target_size=(16, 16), target_slices=304):
     photo_array = pad_scan_mask(photo_array, target_slices)
     return photo_array
 
-def load_nifti_mask(file_path, target_size=(16, 16), target_slices=304):
+def load_nifti_mask(file_path, target_size=(32, 32), target_slices=304):
     mask_image = sitk.ReadImage(file_path) 
     mask_array = sitk.GetArrayFromImage(mask_image)
 
@@ -55,23 +55,35 @@ def load_nifti_mask(file_path, target_size=(16, 16), target_slices=304):
     mask_array = pad_scan_mask(mask_array, target_slices)
     return mask_array
     
-def cbct_data_generator(scan_path: str, masks_path: str, scan_names: list):
-    for name in cycle(scan_names):  
-        cbct_scan_file = name + "_0000.nii.gz"
-        mask_file = name + ".nii.gz"
+def cbct_data_generator(scan_path: str, masks_path: str, scan_names: list, batch_size: int = 2):
+    while True:
+        scans_batch = []
+        masks_batch = []
+        for name in cycle(scan_names):  
+            cbct_scan_file = name + "_0000.nii.gz"
+            mask_file = name + ".nii.gz"
 
-        cbct_scan = load_nifti_cbct_scan(scan_path + cbct_scan_file)
-        mask = load_nifti_mask(masks_path + mask_file)
+            cbct_scan = load_nifti_cbct_scan(scan_path + cbct_scan_file)
+            mask = load_nifti_mask(masks_path + mask_file)
 
-        cbct_scan = cbct_scan[..., np.newaxis]  
-        mask = mask[..., np.newaxis]   
+            cbct_scan = cbct_scan[..., np.newaxis]  
+            mask = mask[..., np.newaxis]   
 
-        scan_ready = np.expand_dims(cbct_scan, axis=0)
-        mask_ready = np.expand_dims(mask, axis=0)
+            print(f"{cbct_scan_file}: {cbct_scan.shape}, {mask_file}: {mask.shape}")
 
-        print(f"{cbct_scan_file}: {scan_ready.shape}, {mask_file}: {mask_ready.shape}")
+            scans_batch.append(cbct_scan)
+            masks_batch.append(mask)
 
-        yield scan_ready, mask_ready
+            if len(scans_batch) == batch_size:
+                scans_ready = np.stack(scans_batch, axis=0)
+                masks_ready = np.stack(masks_batch, axis=0)
+
+                print(f"Batch ready: scans shape {scans_ready.shape}, masks shape {masks_ready.shape}")
+
+                yield scans_ready, masks_ready
+
+                scans_batch = []
+                masks_batch = []
 
 def plot_image_with_mask_grid(cbct_scan, mask, rows: int = 3, cols: int = 6, start_idx = 150, end_idx: int = 500):
     num_of_slices = rows*cols
@@ -80,7 +92,7 @@ def plot_image_with_mask_grid(cbct_scan, mask, rows: int = 3, cols: int = 6, sta
 
     idx = start_idx
 
-    plt.figure(figsize=(16,8))
+    plt.figure(figsize=(32,8))
     for i in range(num_of_slices):
         plt.subplot(rows, cols, i+1)
         plt.imshow(cbct_scan[idx,:,:],cmap="gray")

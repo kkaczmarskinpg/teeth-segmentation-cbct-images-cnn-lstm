@@ -2,7 +2,7 @@ from keras import layers, Sequential, losses
 from metrics import dice_coefficient, jaccard_index, dice_loss
 import tensorflow as tf
 
-def create_cnn_convlstm2d_model(image_shape=(128, 128), num_slices=50):
+def create_cnn_convlstm2d_model(image_shape=(128, 128), num_slices=304):
     model = Sequential()
 
     
@@ -48,8 +48,9 @@ def create_cnn_convlstm2d_model(image_shape=(128, 128), num_slices=50):
     
     model.compile(
         optimizer='adam',
-        loss=tf.keras.losses.Dice(
-            reduction="sum_over_batch_size", name="dice", axis=None, dtype=None),
+        loss = losses.BinaryCrossentropy(),
+        #loss=tf.keras.losses.Dice(
+        #    reduction="sum_over_batch_size", name="dice", axis=None, dtype=None),
         metrics=[dice_coefficient, jaccard_index]
     )
 
