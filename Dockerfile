@@ -29,6 +29,7 @@ ENV PATH="/opt/conda/bin:$PATH"
 COPY . /ws
 
 RUN /opt/conda/bin/conda install -y python=${PYTHON_VERSION} && \
+    /opt/conda/bin/conda install -c conda-forge tensorflow cudatoolkit cudnn && \
     /opt/conda/bin/conda clean -ya
     
 # Install pip dependencies
