@@ -1,5 +1,6 @@
 from keras import layers, models, Input, losses
-from metrics import dice_coefficient, jaccard_index, dice_loss
+from metrics import dice_coefficient, jaccard_index, dice_binary_crossentropy_loss
+import tensorflow as tf
 
 def create_cnn_lstm_model(image_shape=(64, 64), num_slices=304):
     """
@@ -85,7 +86,9 @@ def create_cnn_lstm_model(image_shape=(64, 64), num_slices=304):
     # Compile the model
     model.compile(
         optimizer='adam', 
-        loss=dice_loss, 
+        loss=tf.keras.losses.Dice(
+            reduction="sum_over_batch_size", name="dice", axis=None, dtype=None
+        ),
         metrics=[
             jaccard_index,
             dice_coefficient,
