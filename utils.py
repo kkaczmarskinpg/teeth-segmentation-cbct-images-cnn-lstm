@@ -37,22 +37,22 @@ def load_dicom(zip_file_path, target_size=(32, 32)):
                     
     return np.array(slices)
 
-def load_nifti_cbct_scan(file_path, target_size=(64, 64), target_slices=304):
+def load_nifti_cbct_scan(file_path, target_size=(128, 128), target_slices=304):
     photo = sitk.ReadImage(file_path)
     photo_array = sitk.GetArrayFromImage(photo)
     photo_array = (photo_array - np.min(photo_array))/(np.max(photo_array)-np.min(photo_array))
     if  target_size != -1:
         photo_array = np.array([cv2.resize(slice_, target_size, interpolation=cv2.INTER_NEAREST) for slice_ in photo_array]) # only 50 slices for test
-    photo_array = pad_scan_mask(photo_array, target_slices)[150:200]
+    photo_array = pad_scan_mask(photo_array, target_slices)[150:250]
     return photo_array
 
-def load_nifti_mask(file_path, target_size=(64, 64), target_slices=304):
+def load_nifti_mask(file_path, target_size=(128, 128), target_slices=304):
     mask_image = sitk.ReadImage(file_path) 
     mask_array = sitk.GetArrayFromImage(mask_image)
 
     if target_size != -1:
         mask_array = np.array([cv2.resize(slice_, target_size, interpolation=cv2.INTER_NEAREST) for slice_ in mask_array]) # only 50 slices for testing
-    mask_array = pad_scan_mask(mask_array, target_slices)[150:200]
+    mask_array = pad_scan_mask(mask_array, target_slices)[150:250]
     return mask_array
     
 def cbct_data_generator(scan_path: str, masks_path: str, scan_names: list, batch_size: int = 1):
