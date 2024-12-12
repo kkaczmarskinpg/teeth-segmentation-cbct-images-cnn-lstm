@@ -43,7 +43,7 @@ def load_nifti_cbct_scan(file_path, target_size=(128, 128), target_slices=304):
     photo_array = (photo_array - np.min(photo_array))/(np.max(photo_array)-np.min(photo_array))
     if  target_size != -1:
         photo_array = np.array([cv2.resize(slice_, target_size, interpolation=cv2.INTER_NEAREST) for slice_ in photo_array]) # only 50 slices for test
-    photo_array = pad_scan_mask(photo_array, target_slices)[150:250]
+    photo_array = pad_scan_mask(photo_array, target_slices)
     return photo_array
 
 def load_nifti_mask(file_path, target_size=(128, 128), target_slices=304):
@@ -52,10 +52,10 @@ def load_nifti_mask(file_path, target_size=(128, 128), target_slices=304):
 
     if target_size != -1:
         mask_array = np.array([cv2.resize(slice_, target_size, interpolation=cv2.INTER_NEAREST) for slice_ in mask_array]) # only 50 slices for testing
-    mask_array = pad_scan_mask(mask_array, target_slices)[150:250]
+    mask_array = pad_scan_mask(mask_array, target_slices)
     return mask_array
     
-def cbct_data_generator(scan_path: str, masks_path: str, scan_names: list, batch_size: int = 1):
+def cbct_data_generator(scan_path: str, masks_path: str, scan_names: list, target_size=(128, 128), batch_size: int = 1):
     while True:
         scans_batch = []
         masks_batch = []
@@ -65,14 +65,26 @@ def cbct_data_generator(scan_path: str, masks_path: str, scan_names: list, batch
 
             cbct_scan = load_nifti_cbct_scan(scan_path + cbct_scan_file)
             mask = load_nifti_mask(masks_path + mask_file)
+            
+            cbct_scan_1 = cbct_scan[150:250]
+            mask_1 = mask[150:250]
 
-            cbct_scan = cbct_scan[..., np.newaxis]  
-            mask = mask[..., np.newaxis]   
+            #cbct_scan_2 = cbct_scan[200:250]
+            #mask_2 = mask[200:250]
 
-            print(f"{cbct_scan_file}: {cbct_scan.shape}, {mask_file}: {mask.shape}")
+            cbct_scan_1 = cbct_scan_1[..., np.newaxis]  
+            mask_1 = mask_1[..., np.newaxis]
 
-            scans_batch.append(cbct_scan)
-            masks_batch.append(mask)
+            #cbct_scan_2 = cbct_scan_2[..., np.newaxis]  
+            #mask_2 = mask_2[..., np.newaxis]   
+
+
+            print(f"Loaded {cbct_scan_file}.")
+
+            scans_batch.append(cbct_scan_1)
+            #scans_batch.append(cbct_scan_2)
+            masks_batch.append(mask_1)
+            #masks_batch.append(mask_2)
 
             if len(scans_batch) == batch_size:
                 scans_ready = np.stack(scans_batch, axis=0)

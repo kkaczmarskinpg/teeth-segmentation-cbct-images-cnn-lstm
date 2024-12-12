@@ -38,9 +38,12 @@ def create_cnn_convlstm2d_model(image_shape=(128, 128), num_slices=304):
     model.add(layers.TimeDistributed(layers.Dropout(0.2)))
 
     
-    model.add(layers.TimeDistributed(layers.Conv2DTranspose(filters=64, kernel_size=(3, 3), strides=(2, 2), padding='same', activation='relu')))
-    model.add(layers.TimeDistributed(layers.Conv2DTranspose(filters=32, kernel_size=(3, 3), strides=(2, 2), padding='same', activation='relu')))
-    model.add(layers.TimeDistributed(layers.Conv2DTranspose(filters=16, kernel_size=(3, 3), strides=(2, 2), padding='same', activation='relu')))
+    model.add(layers.TimeDistributed(
+        layers.Conv2DTranspose(filters=64, kernel_size=(3, 3), strides=(2, 2), padding='same', activation='relu')))
+    model.add(layers.TimeDistributed(
+        layers.Conv2DTranspose(filters=32, kernel_size=(3, 3), strides=(2, 2), padding='same', activation='relu')))
+    model.add(layers.TimeDistributed(
+        layers.Conv2DTranspose(filters=16, kernel_size=(3, 3), strides=(2, 2), padding='same', activation='relu')))
     
    
     model.add(layers.TimeDistributed(layers.Conv2D(filters=1, kernel_size=(1, 1), activation='sigmoid', padding='same')))
