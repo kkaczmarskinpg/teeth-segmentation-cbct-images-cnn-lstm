@@ -15,7 +15,7 @@ def dice_binary_crossentropy_loss(y_true, y_pred):
     loss_dice = losses.Dice()
     loss_binary_crossentropy = losses.BinaryCrossentropy()
 
-    return 0.5*loss_dice(y_true,y_pred)+0.5*loss_binary_crossentropy(y_true,y_pred)
+    return 0.9*loss_dice(y_true,y_pred)+0.1*loss_binary_crossentropy(y_true,y_pred)
 
 def jaccard_index(y_true, y_pred, smooth=100):
     y_true_f = tf.keras.backend.flatten(tf.cast(y_true, 'float32'))
