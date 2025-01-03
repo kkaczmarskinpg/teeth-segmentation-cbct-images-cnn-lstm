@@ -97,20 +97,20 @@ def cbct_data_generator(scan_path: str, masks_path: str, scan_names: list, targe
                 scans_batch = []
                 masks_batch = []
 
-def plot_image_with_mask_grid(cbct_scan, mask, rows: int = 3, cols: int = 6, start_idx = 150, end_idx: int = 500):
+def plot_image_with_mask_grid(cbct_scan, mask, rows: int = 3, cols: int = 6, start_idx = 150, end_idx: int = 500, cmap_of_teeth="Set1"):
     num_of_slices = rows*cols
 
     idx_increment = (end_idx-start_idx)//num_of_slices
 
     idx = start_idx
 
-    plt.figure(figsize=(32,8))
+    plt.figure(figsize=(16,8))
     for i in range(num_of_slices):
         plt.subplot(rows, cols, i+1)
         plt.imshow(cbct_scan[idx,:,:],cmap="gray")
 
         teeth = np.ma.masked_where(mask[idx,:,:] == 0, mask[idx,:,:])
-        plt.imshow(teeth, cmap="Set1")
+        plt.imshow(teeth, cmap=cmap_of_teeth)
 
         plt.title(str(idx))
         plt.axis("off")
